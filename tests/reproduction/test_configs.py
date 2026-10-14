@@ -45,12 +45,24 @@ def test_recipes_compose_without_training(dataset, stage):
         assert config.datamodule.trainset_corruption.pc_corrupted == 0.1
 
 
-def test_conda_spec_preserves_original_pins():
-    original = load_yaml(REPO / "my_environment.yaml")
+def test_conda_base_and_frozen_research_versions():
     adopted = load_yaml(REPO / "environment-p100.yaml")
     assert adopted["name"] == "rho-loss-p100"
-    assert original["channels"] == adopted["channels"]
-    assert original["dependencies"][:-1] == adopted["dependencies"][:-1]
-    assert set(original["dependencies"][-1]["pip"]) <= set(
-        adopted["dependencies"][-1]["pip"]
-    )
+    assert adopted["channels"] == ["conda-forge", "nodefaults"]
+    assert "python=3.9.6" in adopted["dependencies"]
+    assert "pip=21.2.4" in adopted["dependencies"]
+    assert adopted["dependencies"][-1]["pip"] == ["-r requirements-p100.txt"]
+    requirements = (REPO / "requirements-p100.txt").read_text()
+    assert "--require-hashes" in requirements
+    for pin in [
+        "numpy==1.20.3",
+        "pillow==8.3.1",
+        "pytorch-lightning==1.4.6",
+        "torchmetrics==0.5.1",
+        "hydra-core==1.1.1",
+        "wandb==0.12.1",
+    ]:
+        assert pin in requirements
+    assert "torch-1.9.0%2Bcu111-cp39-cp39-linux_x86_64.whl" in requirements
+    assert "torchvision-0.10.0%2Bcu111-cp39-cp39-linux_x86_64.whl" in requirements
+    assert "_libgcc_mutex" not in str(adopted) and "jpeg=" not in str(adopted)

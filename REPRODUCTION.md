@@ -14,16 +14,32 @@ conda activate rho-loss-p100
 python -m pip check
 ```
 
-`environment-p100.yaml` preserves the original Conda channels and every
-original dependency/build pin from `my_environment.yaml`. The environment is
-renamed `rho-loss-p100`; pinned `python-dotenv`, `pytest`, and `sh` are added for
-development checks. Python 3.9.6, PyTorch 1.9.0/CUDA 11.1, Lightning 1.4.6,
-TorchMetrics 0.5.1, and NumPy 1.20.3 remain as specified by the authors.
+The original full Conda export failed to solve on the BYU login node: old
+exact build IDs were unavailable in the effective channels, `_libgcc_mutex`
+and `_openmp_mutex` came from conflicting channel families, and the old
+torchvision build imposed incompatible Conda JPEG/Pillow constraints.
 
-The historical Conda builds have not been installed/resolved in this cloud
-machine, and GPU support has not been validated on BYU. If creation fails,
-save the solver error and review any proposed dependency change; do not silently
-upgrade the training stack or use unpinned `requirements.txt`.
+The corrected `environment-p100.yaml` uses **conda-forge only** for Python
+3.9.6 and pip 21.2.4, without exact OS-library build IDs or implicit defaults.
+Conda then installs `requirements-p100.txt` through pip. Run creation from this
+repository directory so that the referenced requirements file is available.
+The requirements are frozen and hash-checked, derived from `poetry.lock` with
+NumPy 1.20.3, Pillow 8.3.1, setuptools 52.0.0, and wheel 0.37.0 aligned to the
+original Conda application/bootstrap versions. Development dependencies are
+also frozen. `my_environment.yaml` remains the untouched historical reference.
+
+PyTorch 1.9.0 and torchvision 0.10.0 use their official **CUDA 11.1 Linux/Python
+3.9 wheels**, pinned to the SHA256 hashes in the official PyTorch index.
+Those wheels include the CUDA/cuDNN runtime; no separate Conda `cudatoolkit`
+or Conda torchvision/JPEG stack is needed. Observed CUDA is 11.1 and cuDNN is
+8.0.5, matching the original stack. Lightning 1.4.6, TorchMetrics 0.5.1,
+Hydra 1.1.1, NumPy 1.20.3, Pillow 8.3.1, and W&B 0.12.1 are preserved.
+
+The corrected base solves and was installed here with Python 3.9.6; the
+hash-pinned research packages install, pass dependency checks, and pass the
+focused checks below. Actual BYU/P100 GPU execution remains unverified. If
+creation fails, retain the new error rather than silently upgrading research
+packages or disabling certificate/checksum verification.
 
 ## Edit the site settings
 
@@ -174,7 +190,8 @@ diagnostic or custom logarithmic schedule is introduced.
 
 | Change | Reason |
 | --- | --- |
-| Separate named Conda spec, original pins plus three pinned development packages | Preserve the paper's stack without modifying the group's environment |
+| Conda-forge Python/pip base plus frozen pip research requirements | Replace an unsatisfiable mixed-channel historical export while preserving research-library versions |
+| Official CUDA 11.1 PyTorch/torchvision wheels and verified hashes | Preserve CUDA/cuDNN versions while avoiding the old Conda JPEG dependency conflict |
 | Login-node integrity/download preparation and offline compute checks | GPU nodes have no internet; exact native dataset layouts are required |
 | HTTPS-only downloads with original archive checksums | Avoid the old torchvision downloader's automatic fallback to HTTP |
 | Regular P100-only launcher, stage/seed manifests and dependencies | Reuse the group's submission approach with Hydra commands and explicit provenance |
@@ -198,11 +215,13 @@ step tests compare forward counts, BatchNorm buffers, weights, RNG state,
 accuracy, and loss with progress disabled/enabled. They do not execute a paper
 experiment, `Trainer.fit`, a cluster job, or real `wandb sync`.
 
-Current cloud result: **29 focused checks passed** in a Poetry-derived Python
-3.9 environment. The exact Conda pins above have not been solved here.
+Current cloud result: **29 focused checks passed** with the corrected CUDA 11.1
+research packages on a Conda Python **3.9.6** base. Dependency checks and native
+CIFAR/digit image transforms passed. The PyTorch wheel includes `sm_60` kernels
+for P100 and reports CUDA 11.1 / cuDNN 8.0.5. This does not exercise a GPU.
 
-Still unverified: actual historical Conda solve, full datasets downloaded into
-the selected paths, P100/driver execution, BYU Slurm feature/limits, complete
+Still unverified: full datasets downloaded into the selected paths,
+P100/driver execution, BYU Slurm feature/limits, complete
 paper loops, and real W&B synchronization. The old MNIST test elsewhere in the
 repository imports an absent module and remains a known unrelated failure.
 Do not call these unexecuted steps validated.

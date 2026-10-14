@@ -76,10 +76,12 @@ whose key pins are:
 | NumPy | 1.20.3 |
 | W&B | 0.12.1 |
 
-The initial creation command will be `conda env create -n rho-loss-p100 -f
-my_environment.yaml`, from the repository root. This is the YAML environment
-creation command; the README's `conda install --file` example is not suitable
-for this YAML format.
+Use `conda env create -f environment-p100.yaml` from the repository root. The
+historical export failed on BYU and is retained only as a reference. The
+corrected file supplies a conda-forge Python 3.9.6/pip 21.2.4 base and installs
+hash-pinned `requirements-p100.txt`, including official PyTorch/torchvision
+CUDA 11.1 wheels. This avoids the old mixed-channel runtime mutex and JPEG
+build conflicts without changing the research-library versions.
 
 The file is an old export containing exact build strings. If it no longer
 solves, investigate package availability and prepare a separate, smaller
@@ -98,8 +100,8 @@ P100 is Pascal compute capability 6.0, supported by the original CUDA/PyTorch
 generation. Actual readiness still requires a P100 allocation: confirm device
 name, compute capability, driver/runtime versions, and a GPU tensor operation
 before training. No cluster GPU validation has been completed here. Prior
-cloud CPU smoke checks used a Poetry-derived environment and do not establish
-that this exact Conda environment works on BYU.
+cloud CPU smoke checks were followed by testing the corrected requirements
+on a Conda Python 3.9.6 base. This still does not establish GPU readiness on BYU.
 
 Acceptance: reproducible installation, successful required imports, and a
 successful P100 functional check. Log every version change in this document.
@@ -384,7 +386,7 @@ Keep it in the fork alongside the reproduction instructions.
 
 | Area | Original behavior | Adopted behavior | Reason | Validation |
 | --- | --- | --- | --- | --- |
-| Environment | Historical `my_environment.yaml` | Separate `environment-p100.yaml`; original pins plus pinned development tools | P100 reproduction | Pin preservation checked; Conda solve/P100 not tested |
+| Environment | Historical `my_environment.yaml`, rejected by the BYU solver | Conda-forge Python 3.9.6/pip 21.2.4 base plus frozen hash-checked research requirements and CUDA 11.1 wheels | Preserve research versions while removing obsolete mixed-channel build constraints | Base solves/installs; 29 checks and image transforms pass; P100 not tested |
 | Scheduling | Author-specific Slurm paths/partitions | BYU P100 regular jobs; 4 CPUs, 32G, one day; required site paths | Cluster adaptation | Mocked submission/dependencies checked; Slurm not contacted |
 | Data preparation | Loaders can download when data is absent | Login-node staging/integrity preflight before submission; compute verification only | Compute nodes are offline | Local corrupt-file/verification checks; real downloads not performed |
 | W&B | Online logger default | Offline `ksmiller-byu-research/ValidateRhoLoss` plus adapted daemon | Compute nodes are offline | Configuration and mocked syncing checked; no real sync |
