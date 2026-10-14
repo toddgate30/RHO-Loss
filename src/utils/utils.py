@@ -388,13 +388,15 @@ def verify_correct_dataset_order(
 def save_repo_status(path):
     """Save current commit hash and uncommitted changes to output dir."""
 
+    # Hydra outputs may be on shared storage outside the checkout.
+    repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     with open(os.path.join(path, "git_commit.txt"), "w+") as f:
-        subprocess.run(["git", "rev-parse", "HEAD"], stdout=f)
+        subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, stdout=f, check=True)
 
     with open(os.path.join(path, "git_commit.txt"), "r") as f:
         commit = f.readline()
 
     with open(os.path.join(path, "workspace_changes.diff"), "w+") as f:
-        subprocess.run(["git", "diff"], stdout=f)
+        subprocess.run(["git", "diff"], cwd=repo, stdout=f, check=True)
     
     return commit

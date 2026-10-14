@@ -1,0 +1,14 @@
+# EDIT THESE THREE PATHS before submitting. They must be shared absolute paths.
+# python: /path/to/conda/envs/rho-loss-p100/bin/python
+# data_root: /path/to/shared/datasets
+# output_root: /path/to/shared/ValidateRhoLoss
+python: null
+data_root: null
+output_root: null
+
+# Regular jobs ONLY. P100/pascal is enforced by the launcher.
+slurm:
+  cpus: 4
+  mem: 32G
+  time: 1-00:00:00  # ONE DAY; adjust here before running
+  exclude_nodes: []

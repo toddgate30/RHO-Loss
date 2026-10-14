@@ -16,9 +16,10 @@ from torch.nn import functional as F
 
 from src.datamodules.datamodules import CINIC10RelevanceDataModule
 from src.utils.utils import unmask_config
+from src.utils.geodesic_progress import PredictionProgressMixin
 
 
-class OneModel(pl.LightningModule):
+class OneModel(PredictionProgressMixin, pl.LightningModule):
     def __init__(
         self,
         model,
@@ -26,6 +27,7 @@ class OneModel(pl.LightningModule):
         scheduler_config,
         datamodule=None,
         percent_train=1.0,
+        progress_logging=False,
     ):
         super().__init__()
 
@@ -61,6 +63,7 @@ class OneModel(pl.LightningModule):
         acc = accuracy(preds, target)
         self.log("train_loss", loss, on_step=True, on_epoch=True, logger=True)
         self.log("train_acc", acc, on_step=True, on_epoch=True, logger=True)
+        self._record_progress("train", logits, target)
 
         if isinstance(self.datamodule, CINIC10RelevanceDataModule):
             self.log(
@@ -84,6 +87,7 @@ class OneModel(pl.LightningModule):
         acc = accuracy(preds, target)
         self.log("val_loss_epoch", loss, on_epoch=True, logger=True, sync_dist=True)
         self.log("val_acc_epoch", acc, on_epoch=True, logger=True, sync_dist=True)
+        self._record_progress("val", logits, target)
 
         return loss
 
@@ -98,6 +102,7 @@ class OneModel(pl.LightningModule):
         acc = accuracy(preds, target)
         self.log("test_loss_epoch", loss, on_epoch=True, logger=True)
         self.log("test_acc_epoch", acc, on_epoch=True, logger=True)
+        self._record_progress("test", logits, target)
 
         return loss
 

@@ -17,13 +17,14 @@ import numpy as np
 from src.curricula.utils_bald import enable_dropout
 from src.models.OneModel import OneModel
 from src.utils.utils import unmask_config
+from src.utils.geodesic_progress import PredictionProgressMixin
 import hydra
 
 from src.datamodules.datamodules import CINIC10RelevanceDataModule, Clothing1MDataModule
 from src.curricula.selection_methods import reducible_loss_selection, irreducible_loss_selection, gradnorm_ub_selection, ce_loss_selection, uniform_selection
 import pdb
 
-class MultiModels(pl.LightningModule):
+class MultiModels(PredictionProgressMixin, pl.LightningModule):
     def __init__(
         self,
         large_model,
@@ -41,6 +42,7 @@ class MultiModels(pl.LightningModule):
         parallel_skip=False,
         selection_train_mode=True,
         track_all_selection=False,
+        progress_logging=False,
     ):
         """
         PyTorch Lightning Module for GoldiProx.
@@ -275,6 +277,7 @@ class MultiModels(pl.LightningModule):
         acc = accuracy(preds, target)
         self.log("train_loss", loss.mean(), on_step=True, on_epoch=True, logger=True)
         self.log("train_acc", acc, on_step=True, on_epoch=True, logger=True)
+        self._record_progress("train", logits, target)
 
         if isinstance(self.datamodule, CINIC10RelevanceDataModule):
             self.log(
@@ -481,6 +484,7 @@ class MultiModels(pl.LightningModule):
         self.log(
             "val_acc", acc, on_step=True, on_epoch=True, logger=True, prog_bar=True
         )
+        self._record_progress("val", logits, target)
         if self.hparams.update_irreducible:
 
             # logging
@@ -538,6 +542,7 @@ class MultiModels(pl.LightningModule):
         acc = accuracy(preds, target)
         self.log("test_loss", loss, prog_bar=True)
         self.log("test_acc", acc, prog_bar=True)
+        self._record_progress("test", logits, target)
 
         return loss.mean()
 

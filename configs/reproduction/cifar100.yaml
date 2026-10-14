@@ -1,0 +1,14 @@
+dataset: cifar100
+seeds: [1, 2, 3, 4, 5]
+reference_pairs:
+  - {irr_seed: 1, main_seed: 12, label: repository_defaults}
+reference_note: "(1,12) comes from base configuration defaults; published-run seed provenance is unconfirmed."
+methods: [rho, uniform]
+loss_source: checkpoint  # Preserve the checked-in main recipe's on-the-fly losses.
+uniform_percent_train: null
+irr:
+  experiment: cifar100_resnet18_irred
+  overrides: []
+main:
+  experiment: cifar100_resnet18_main
+  overrides: []

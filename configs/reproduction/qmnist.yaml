@@ -1,0 +1,16 @@
+# This datamodule needs MNIST train/test plus QMNIST test50k holdout.
+dataset: qmnist
+seeds: [1, 2, 3, 4, 5]
+reference_pairs:
+  - {irr_seed: 1, main_seed: 12, label: base_defaults_reference}
+reference_note: "Native qmnist_irr/mnist_update config seeds are (1,1), already in the paired sweep. Extra (1,12) is the user-requested base-default comparison, not confirmed published-run provenance."
+methods: [rho, uniform]
+loss_source: checkpoint
+uniform_percent_train: null
+irr:
+  experiment: qmnist_irr
+  overrides:
+    - trainer.min_epochs=10  # Fix base min_epochs=30 conflicting with this recipe's max_epochs=10.
+main:
+  experiment: mnist_update
+  overrides: []

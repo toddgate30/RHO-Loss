@@ -21,7 +21,12 @@ The code uses PyTorch Lightning, Hydra for config file management, and Weights &
 Training on web-scale data can take months. But much computation and time is wasted on redundant and noisy points that are already learnt or not learnable. To accelerate training, we introduce Reducible Holdout Loss Selection (RHO-LOSS), a simple but principled technique which selects approximately those points for training that most reduce the model's generalization loss. As a result, RHO-LOSS mitigates the weaknesses of existing data selection methods: techniques from the optimization literature typically select "hard" (e.g. high loss) points, but such points are often noisy (not learnable) or less task-relevant. Conversely, curriculum learning prioritizes "easy" points, but such points need not be trained on once learned. In contrast, RHO-LOSS selects points that are learnable, worth learning, and not yet learnt. RHO-LOSS trains in far fewer steps than prior art, improves accuracy, and speeds up training on a wide range of datasets, hyperparameters, and architectures (MLPs, CNNs, and BERT). On the large web-scraped image dataset Clothing-1M, RHO-LOSS trains in 18x fewer steps and reaches 2% higher final accuracy than uniform data shuffling.
 
 ## Installation
-Conda: ```conda install --file my_environment.yaml```
+Conda: ```conda env create -f my_environment.yaml```
+
+For the BYU P100 reproduction workflow, see [REPRODUCTION.md](REPRODUCTION.md).
+It includes the separate pinned environment, login-node dataset preparation,
+regular Slurm submission, seed configs, prediction-only progress metrics, and
+offline W&B logging/syncing to `ksmiller-byu-research/ValidateRhoLoss`.
 
 Poetry: ```poetry install```
 
