@@ -83,6 +83,19 @@ submission. A shared lock prevents concurrent extraction into the same cache.
 Use `--verify-only --submit` to require already prepared data without downloads.
 Submission inside an existing Slurm allocation is rejected.
 
+The terminal reports each preparation phase: checking cached files, downloading,
+extracting, verifying/loading splits, and computing data fingerprints. Each
+download has a byte-progress bar with total size/ETA when the server supplies
+`Content-Length`; otherwise it displays transferred bytes and rate. Verified
+cached files are explicitly reused without downloading. If another process
+holds the dataset lock, a waiting message explains the pause.
+
+Once preparation succeeds, a job-submission progress bar advances after each
+accepted job and displays its stage and seeds. Every job ID is printed, followed
+by the final queued-job count and `submitted.json` path. This bar tracks
+**submission, not training or time spent waiting for a GPU**. Dry runs continue
+to print commands without downloading or contacting Slurm.
+
 Digit preparation needs both `indices_MNIST/raw` (training and test data) and
 `indices_QMNIST/raw` (QMNIST test50k holdout). Standard torchvision cache folder
 names are insufficient. Checksum-verified compressed digit files are retained
@@ -215,7 +228,7 @@ step tests compare forward counts, BatchNorm buffers, weights, RNG state,
 accuracy, and loss with progress disabled/enabled. They do not execute a paper
 experiment, `Trainer.fit`, a cluster job, or real `wandb sync`.
 
-Current cloud result: **29 focused checks passed** with the corrected CUDA 11.1
+Current cloud result: **33 focused checks passed** with the corrected CUDA 11.1
 research packages on a Conda Python **3.9.6** base. Dependency checks and native
 CIFAR/digit image transforms passed. The PyTorch wheel includes `sm_60` kernels
 for P100 and reports CUDA 11.1 / cuDNN 8.0.5. This does not exercise a GPU.

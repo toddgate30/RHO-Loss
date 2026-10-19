@@ -10,6 +10,8 @@ from unittest.mock import patch
 from urllib.parse import urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+from tqdm import tqdm
+
 
 class HTTPSRedirectsOnly(HTTPRedirectHandler):
     def redirect_request(self, request, fp, code, msg, headers, newurl):
@@ -25,21 +27,40 @@ def _download_verified(url, path, md5):
     if urlparse(url).scheme != "https":
         raise ValueError("Dataset downloads must use HTTPS.")
     if check_integrity(str(path), md5):
+        print(f"[data] Using verified archive: {path}", flush=True)
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".part")
+    print(f"[data] Downloading {path.name} to {path.parent}", flush=True)
     try:
         opener = build_opener(HTTPSRedirectsOnly())
         with opener.open(
             Request(url, headers={"User-Agent": "RHO-Loss dataset preparation"}),
             timeout=60,
         ) as response:
-            with open(temporary, "wb") as stream:
-                for chunk in iter(lambda: response.read(1024 * 1024), b""):
-                    stream.write(chunk)
+            try:
+                total = int(response.headers.get("Content-Length"))
+                if total < 0:
+                    total = None
+            except (TypeError, ValueError):
+                total = None
+            with tqdm(
+                total=total,
+                desc=path.name,
+                unit="B",
+                unit_scale=True,
+                unit_divisor=1024,
+                dynamic_ncols=True,
+            ) as progress:
+                with open(temporary, "wb") as stream:
+                    for chunk in iter(lambda: response.read(1024 * 1024), b""):
+                        stream.write(chunk)
+                        progress.update(len(chunk))
+        print(f"[data] Verifying downloaded archive: {path.name}", flush=True)
         if not check_integrity(str(temporary), md5):
             raise RuntimeError(f"Downloaded archive checksum failed: {path}")
         temporary.replace(path)
+        print(f"[data] Download verified: {path.name}", flush=True)
     finally:
         if temporary.exists():
             temporary.unlink()
@@ -65,6 +86,7 @@ def _digit_resources(cls, root, allow_download):
         filename = resource.rsplit("/", 1)[-1]
         archive = raw_dir / filename
         raw = raw_dir / filename.removesuffix(".gz")
+        print(f"[data] Checking {cls.__name__}: {filename}", flush=True)
         if not check_integrity(str(archive), md5):
             if not allow_download:
                 raise RuntimeError(
@@ -90,6 +112,7 @@ def _digit_resources(cls, root, allow_download):
             if not check_integrity(str(archive), md5):
                 raise RuntimeError(f"Archive verification failed: {archive}")
         # Check extracted files against the checksum-verified compressed source.
+        print(f"[data] Verifying extracted file: {raw.name}", flush=True)
         expected = hashlib.sha256()
         with gzip.open(archive, "rb") as stream:
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):
@@ -99,6 +122,7 @@ def _digit_resources(cls, root, allow_download):
                 raise RuntimeError(
                     f"Missing/corrupt extracted file: {raw}. Prepare on a login node."
                 )
+            print(f"[data] Extracting {archive.name}", flush=True)
             extract_archive(str(archive), str(raw_dir))
         if sha256(raw) != expected.hexdigest():
             raise RuntimeError(f"Extraction verification failed: {raw}")
@@ -131,7 +155,17 @@ def _prepare(dataset, root, allow_download):
                 )
             archive = root / cls.filename
             _download_verified(cls.url, archive, cls.tgz_md5)
+            print(f"[data] Extracting {archive.name}", flush=True)
             extract_archive(str(archive), str(root))
+        else:
+            print(
+                f"[data] {dataset} files already verified; no download needed.",
+                flush=True,
+            )
+        print(
+            f"[data] Verifying extracted {dataset} files and loading splits...",
+            flush=True,
+        )
         if not all(
             check_integrity(str(path), md5) for path, (_, md5) in zip(files, expected)
         ):
@@ -148,6 +182,9 @@ def _prepare(dataset, root, allow_download):
         # The repository's QMNISTDataModule needs BOTH MNIST and QMNIST test50k.
         files = _digit_resources(native.indices_MNIST, root, allow_download)
         files += _digit_resources(native.indices_QMNIST, root, allow_download)
+        print(
+            "[data] Loading MNIST train/test and QMNIST holdout splits...", flush=True
+        )
         with patch.object(
             native, "download_and_extract_archive", side_effect=no_download
         ):
@@ -162,6 +199,7 @@ def _prepare(dataset, root, allow_download):
         train[0], test[0], holdout[0]
     else:
         raise ValueError("Supported datasets: cifar10, cifar100, mnist/qmnist")
+    print("[data] Computing dataset fingerprints...", flush=True)
     return {
         "dataset": dataset,
         "root": str(root),
@@ -177,10 +215,27 @@ def prepare_dataset(dataset, root, allow_download=True):
         root.mkdir(parents=True, exist_ok=True)
     if not root.is_dir():
         raise RuntimeError(f"Data root does not exist: {root}")
+    mode = (
+        "download missing files if needed"
+        if allow_download
+        else "offline verification only"
+    )
+    print(f"[data] Preparing {dataset} in {root} ({mode}).", flush=True)
     # A shared lock prevents concurrent login-node jobs extracting into one cache.
     with open(root / ".rho-data.lock", "a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            print(
+                "[data] Another process is preparing this data root; waiting for its lock...",
+                flush=True,
+            )
+            fcntl.flock(lock, fcntl.LOCK_EX)
         manifest = _prepare(dataset, root, allow_download)
+        print(
+            f"[data] {dataset} preparation complete; all required splits verified.",
+            flush=True,
+        )
         return manifest
 
 
