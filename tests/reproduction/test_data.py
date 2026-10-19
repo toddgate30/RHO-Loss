@@ -1,5 +1,6 @@
 import gzip
 import hashlib
+import io
 from pathlib import Path
 
 import pytest
@@ -55,3 +56,70 @@ def test_downloads_and_redirects_cannot_downgrade_tls(tmp_path):
         HTTPSRedirectsOnly().redirect_request(
             None, None, 302, "", {}, "http://example.invalid/data"
         )
+
+
+@pytest.mark.parametrize("known_size", [True, False])
+def test_download_progress_and_cached_reuse(tmp_path, monkeypatch, capsys, known_size):
+    payload = b"dataset chunk" * 100000
+    path = tmp_path / "dataset.gz"
+    md5 = hashlib.md5(payload).hexdigest()
+    bars = []
+
+    class Bar:
+        def __init__(self, **kwargs):
+            self.total = kwargs["total"]
+            self.downloaded = 0
+            bars.append(self)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def update(self, count):
+            self.downloaded += count
+
+    class Response(io.BytesIO):
+        headers = {"Content-Length": str(len(payload))} if known_size else {}
+
+    class Opener:
+        def open(self, *args, **kwargs):
+            return Response(payload)
+
+    monkeypatch.setattr("reproduction.data.build_opener", lambda *args: Opener())
+    monkeypatch.setattr("reproduction.data.tqdm", Bar)
+    _download_verified("https://example.invalid/dataset", path, md5)
+    assert path.read_bytes() == payload
+    assert not path.with_name(path.name + ".part").exists()
+    assert bars[0].total == (len(payload) if known_size else None)
+    assert bars[0].downloaded == len(payload)
+    monkeypatch.setattr(
+        "reproduction.data.build_opener",
+        lambda *args: pytest.fail("Cached file must not download"),
+    )
+    _download_verified("https://example.invalid/dataset", path, md5)
+    output = capsys.readouterr().out
+    assert "Downloading dataset.gz" in output
+    assert "Download verified" in output
+    assert "Using verified archive" in output
+
+
+def test_progress_does_not_bypass_failed_download_checksum(tmp_path, monkeypatch):
+    class Response(io.BytesIO):
+        headers = {"Content-Length": "3"}
+
+    class Opener:
+        def open(self, *args, **kwargs):
+            return Response(b"bad")
+
+    monkeypatch.setattr("reproduction.data.build_opener", lambda *args: Opener())
+    path = tmp_path / "dataset.gz"
+    with pytest.raises(RuntimeError, match="checksum failed"):
+        _download_verified(
+            "https://example.invalid/dataset",
+            path,
+            hashlib.md5(b"expected").hexdigest(),
+        )
+    assert not path.exists()
+    assert not path.with_name(path.name + ".part").exists()

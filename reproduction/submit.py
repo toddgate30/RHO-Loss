@@ -10,6 +10,7 @@ import secrets
 import subprocess
 
 import yaml
+from tqdm import tqdm
 
 from reproduction.run_job import RunType, run_job
 
@@ -121,7 +122,16 @@ def prepare_on_login_node(recipe, site, verify_only=False):
     if verify_only:
         command.append("--verify-only")
     # Use the training interpreter for the exact native loaders/version.
+    action = (
+        "Verifying cached dataset" if verify_only else "Checking/downloading dataset"
+    )
+    print(
+        f"[data] {action} on the login node before submitting any jobs...", flush=True
+    )
     subprocess.run(command, cwd=REPO, check=True)
+    print(
+        "[data] Dataset preparation succeeded. Starting Slurm submission.", flush=True
+    )
 
 
 def submit(recipe, site, *, dry_run=True, verify_only=False):
@@ -149,45 +159,66 @@ def submit(recipe, site, *, dry_run=True, verify_only=False):
     )
     sweep_dir = output / token / recipe["dataset"]
     submitted = []
-    for pair in pairs:
-        pair_dir = (
-            sweep_dir / f"{pair['label']}_irr{pair['irr_seed']}_main{pair['main_seed']}"
+    with tqdm(
+        total=len(pairs) * (1 + len(recipe["methods"])),
+        desc="Submitting jobs",
+        unit="job",
+        disable=dry_run,
+        dynamic_ncols=True,
+    ) as progress:
+        for pair in pairs:
+            pair_dir = (
+                sweep_dir
+                / f"{pair['label']}_irr{pair['irr_seed']}_main{pair['main_seed']}"
+            )
+            irr_dir = pair_dir / "irr"
+            dependency = None
+            for stage in ("irr", *recipe["methods"]):
+                run_dir = pair_dir / stage
+                manifest = build_manifest(recipe, site, run_dir, pair, stage, irr_dir)
+                manifest_path = run_dir / "job.json"
+                if not dry_run:
+                    run_dir.mkdir(parents=True, exist_ok=False)
+                    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+                    (run_dir / "recipe.yaml").write_text(
+                        yaml.safe_dump(recipe, sort_keys=False)
+                    )
+                else:
+                    print(
+                        f"{stage}: {manifest['entrypoint']} +experiment={manifest['experiment']} "
+                        f"irr_seed={pair['irr_seed']} main_seed={pair['main_seed']}"
+                    )
+                if not dry_run:
+                    progress.set_postfix_str(
+                        f"{stage} irr={pair['irr_seed']} main={pair['main_seed']}"
+                    )
+                job_id = run_job(
+                    manifest_path,
+                    RunType.DRY if dry_run else RunType.SBATCH,
+                    python=python,
+                    **site["slurm"],
+                    name=f"rho-{recipe['dataset']}-{stage}-{pair['main_seed']}",
+                    dependency=(dependency or "IRR_JOB_ID") if stage != "irr" else None,
+                )
+                if stage == "irr":
+                    dependency = job_id
+                submitted.append(
+                    {"job_id": job_id, "manifest": str(manifest_path), "stage": stage}
+                )
+                if not dry_run:
+                    # Persist each success so partially submitted sweeps remain traceable.
+                    (sweep_dir / "submitted.json").write_text(
+                        json.dumps(submitted, indent=2) + "\n"
+                    )
+                    progress.update(1)
+                    tqdm.write(
+                        f"Submitted job {job_id}: {stage}, irr_seed={pair['irr_seed']}, main_seed={pair['main_seed']}"
+                    )
+    if not dry_run:
+        print(
+            f"Queued {len(submitted)} jobs. Submission record: {sweep_dir / 'submitted.json'}",
+            flush=True,
         )
-        irr_dir = pair_dir / "irr"
-        dependency = None
-        for stage in ("irr", *recipe["methods"]):
-            run_dir = pair_dir / stage
-            manifest = build_manifest(recipe, site, run_dir, pair, stage, irr_dir)
-            manifest_path = run_dir / "job.json"
-            if not dry_run:
-                run_dir.mkdir(parents=True, exist_ok=False)
-                manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
-                (run_dir / "recipe.yaml").write_text(
-                    yaml.safe_dump(recipe, sort_keys=False)
-                )
-            else:
-                print(
-                    f"{stage}: {manifest['entrypoint']} +experiment={manifest['experiment']} "
-                    f"irr_seed={pair['irr_seed']} main_seed={pair['main_seed']}"
-                )
-            job_id = run_job(
-                manifest_path,
-                RunType.DRY if dry_run else RunType.SBATCH,
-                python=python,
-                **site["slurm"],
-                name=f"rho-{recipe['dataset']}-{stage}-{pair['main_seed']}",
-                dependency=(dependency or "IRR_JOB_ID") if stage != "irr" else None,
-            )
-            if stage == "irr":
-                dependency = job_id
-            submitted.append(
-                {"job_id": job_id, "manifest": str(manifest_path), "stage": stage}
-            )
-            if not dry_run:
-                # Persist each success so partially submitted sweeps remain traceable.
-                (sweep_dir / "submitted.json").write_text(
-                    json.dumps(submitted, indent=2) + "\n"
-                )
     return submitted
 
 

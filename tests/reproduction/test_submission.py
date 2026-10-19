@@ -46,7 +46,9 @@ def test_download_failure_prevents_all_submissions(tmp_path, monkeypatch):
     assert not Path(site["output_root"]).exists()
 
 
-def test_six_pipelines_use_their_own_artifacts_and_dependencies(tmp_path, monkeypatch):
+def test_six_pipelines_use_their_own_artifacts_and_dependencies(
+    tmp_path, monkeypatch, capsys
+):
     recipe, site = example(tmp_path)
     events = []
     monkeypatch.setattr(
@@ -74,6 +76,35 @@ def test_six_pipelines_use_their_own_artifacts_and_dependencies(tmp_path, monkey
         assert "logger.wandb.entity=ksmiller-byu-research" in rho[0]["overrides"]
     assert len(irr_dirs) == 6
     assert events[-1][0]["irr_seed"] == 1 and events[-1][0]["main_seed"] == 12
+    output = capsys.readouterr()
+    for record in records:
+        assert f"Submitted job {record['job_id']}:" in output.out
+    assert "Queued 18 jobs" in output.out
+    assert "18/18" in output.err
+
+
+def test_failed_submission_leaves_partial_progress_and_record(
+    tmp_path, monkeypatch, capsys
+):
+    recipe, site = example(tmp_path)
+    monkeypatch.setattr(launcher, "prepare_on_login_node", lambda *args: None)
+    calls = []
+
+    def fake_job(path, *args, **kwargs):
+        calls.append(path)
+        if len(calls) == 2:
+            raise RuntimeError("Slurm rejected submission")
+        return "101"
+
+    monkeypatch.setattr(launcher, "run_job", fake_job)
+    with pytest.raises(RuntimeError, match="Slurm rejected"):
+        launcher.submit(recipe, site, dry_run=False)
+    record = next(Path(site["output_root"]).glob("*/cifar10/submitted.json"))
+    assert [job["job_id"] for job in json.loads(record.read_text())] == ["101"]
+    output = capsys.readouterr()
+    assert "Submitted job 101:" in output.out
+    assert "Queued 18 jobs" not in output.out
+    assert "1/18" in output.err
 
 
 def test_dry_run_has_p100_and_regular_job_flags_without_side_effects(tmp_path, capsys):
