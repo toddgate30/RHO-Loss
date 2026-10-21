@@ -178,7 +178,10 @@ syncs active runs, polls every 15 seconds by default, and skips finished runs
 with a `SYNCED` marker. `FINISHED` is written only after successful stage
 completion, artifact creation, and W&B flushing. `SYNCED` is written only after
 successful syncing of a run observed finished before that sync began. Failed
-syncs remain eligible for retry. A root lock prevents overlapping daemon
+syncs remain eligible for retry. The daemon also checks upload error output,
+because W&B 0.12.1 can exit zero after a background upload fails. Missing or
+ambiguous `.wandb` files prevent marking a stage synced. Existing markers from
+older daemon versions may need to be removed before retrying. A root lock prevents overlapping daemon
 instances. `--include-synced` allows growing active runs to upload again after
 an earlier upload. Destination project/entity are explicit in the sync command.
 

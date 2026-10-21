@@ -34,6 +34,16 @@ def sync(root, subdirs=(), wandb="wandb"):
             finished = (run / "FINISHED").is_file()
             if finished and (run / "SYNCED").is_file():
                 continue
+            # An interrupted initialization may leave an empty offline directory.
+            # W&B 0.12.1 can skip it and nevertheless exit with status zero.
+            if any(len(list(folder.glob("*.wandb"))) != 1 for folder in offline_dirs):
+                print(
+                    f"Cannot sync {run}: expected one .wandb file per offline directory.",
+                    flush=True,
+                )
+                success = False
+                continue
+            upload_failed = False
             command = [
                 wandb,
                 "sync",
@@ -49,9 +59,26 @@ def sync(root, subdirs=(), wandb="wandb"):
             ) as process:
                 for line in process.stdout:
                     print(line, end="", flush=True)
-            if process.returncode == 0 and finished:
+                    # W&B 0.12.1 does not propagate background-thread failures
+                    # to the CLI exit code, including failed individual uploads.
+                    lowered = line.lower()
+                    if any(
+                        message in lowered
+                        for message in (
+                            "traceback (most recent call last)",
+                            "exception in thread",
+                            "wandb: error",
+                            "failed to upload",
+                            "upload_file exception",
+                            "skipping directory:",
+                            ".wandb file is empty",
+                            ".wandb file is incomplete",
+                        )
+                    ):
+                        upload_failed = True
+            if process.returncode == 0 and not upload_failed and finished:
                 (run / "SYNCED").touch()
-            elif process.returncode != 0:
+            elif process.returncode != 0 or upload_failed:
                 success = False
         return success
 
