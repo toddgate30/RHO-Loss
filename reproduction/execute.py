@@ -71,7 +71,7 @@ def execute(manifest):
     (run_dir / "STARTED").touch()
     os.environ["WANDB_MODE"] = "offline"
     os.environ["WANDB_PROJECT"] = "ValidateRhoLoss"
-    os.environ["WANDB_ENTITY"] = "ksmiller-byu-research"
+    os.environ["WANDB_ENTITY"] = "miller-ml-research"
     os.environ["WANDB_DIR"] = str(run_dir)
     metadata = {
         **manifest,

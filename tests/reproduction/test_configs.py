@@ -35,7 +35,7 @@ def test_recipes_compose_without_training(dataset, stage):
     assert config.datamodule.data_dir == site["data_root"]
     assert config.logger.wandb.offline is True
     assert config.logger.wandb.project == "ValidateRhoLoss"
-    assert config.logger.wandb.entity == "ksmiller-byu-research"
+    assert config.logger.wandb.entity == "miller-ml-research"
     assert config.model.progress_logging is True
     if stage != "irr":
         assert config.model.percent_train == 0.1
