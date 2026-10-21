@@ -182,6 +182,15 @@ syncs remain eligible for retry. A root lock prevents overlapping daemon
 instances. `--include-synced` allows growing active runs to upload again after
 an earlier upload. Destination project/entity are explicit in the sync command.
 
+### Numeric W&B run IDs
+
+The launcher quotes generated W&B IDs in Hydra overrides. Without quotes, an
+all-digit ID (for example `37429928`) becomes an integer and W&B initialization
+fails before training, leaving an offline directory without a `.wandb` file.
+The corrected launcher applies to new submissions; existing queued manifests
+are unchanged. Failed stages have no metrics to sync. Check other stages before
+resubmitting to avoid duplicating successful experiments.
+
 ## Added progress metrics: no new predictions
 
 `progress_logging` is optional and defaults to false for existing callers;

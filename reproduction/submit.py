@@ -50,7 +50,7 @@ def build_manifest(recipe, site, run_dir, pair, stage, irr_dir):
         "logger.wandb.project=ValidateRhoLoss",
         "logger.wandb.entity=miller-ml-research",
         f"logger.wandb.name={recipe['dataset']}_{stage}_irr{irr_seed}_main{main_seed}",
-        f"logger.wandb.id={secrets.token_hex(4)}",
+        f"logger.wandb.id={json.dumps(secrets.token_hex(4))}",
         f"logger.wandb.group={json.dumps(run_dir.parent.parent.name)}",
         f"logger.wandb.job_type={stage}",
         f"logger.wandb.tags=[{recipe['dataset']},{stage},{pair['label']}]",

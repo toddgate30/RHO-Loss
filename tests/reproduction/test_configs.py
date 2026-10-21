@@ -11,7 +11,9 @@ REPO = Path(__file__).resolve().parents[2]
 
 @pytest.mark.parametrize("dataset", ["cifar10", "cifar100", "qmnist"])
 @pytest.mark.parametrize("stage", ["irr", "rho", "uniform"])
-def test_recipes_compose_without_training(dataset, stage):
+def test_recipes_compose_without_training(dataset, stage, monkeypatch):
+    # Numeric-only random IDs must survive Hydra parsing as strings.
+    monkeypatch.setattr("reproduction.submit.secrets.token_hex", lambda _: "37429928")
     recipe = load_yaml(REPO / f"configs/reproduction/{dataset}.yaml")
     site = {"data_root": "/shared/data with spaces", "slurm": {"cpus": 4}}
     job = build_manifest(
@@ -33,6 +35,8 @@ def test_recipes_compose_without_training(dataset, stage):
     assert config.trainer.gpus == 1
     assert config.trainer.min_epochs <= config.trainer.max_epochs
     assert config.datamodule.data_dir == site["data_root"]
+    assert config.logger.wandb.id == "37429928"
+    assert isinstance(config.logger.wandb.id, str)
     assert config.logger.wandb.offline is True
     assert config.logger.wandb.project == "ValidateRhoLoss"
     assert config.logger.wandb.entity == "miller-ml-research"
