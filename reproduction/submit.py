@@ -48,7 +48,7 @@ def build_manifest(recipe, site, run_dir, pair, stage, irr_dir):
         "+model.progress_logging=true",
         "logger.wandb.offline=true",
         "logger.wandb.project=ValidateRhoLoss",
-        "logger.wandb.entity=ksmiller-byu-research",
+        "logger.wandb.entity=miller-ml-research",
         f"logger.wandb.name={recipe['dataset']}_{stage}_irr{irr_seed}_main{main_seed}",
         f"logger.wandb.id={secrets.token_hex(4)}",
         f"logger.wandb.group={json.dumps(run_dir.parent.parent.name)}",

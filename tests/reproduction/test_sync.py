@@ -30,6 +30,9 @@ def test_active_final_failed_and_already_synced_runs(tmp_path, monkeypatch):
     assert daemon.sync(tmp_path) is False
     assert len(commands) == 3
     assert all("--include-synced" in command for command in commands)
+    for command in commands:
+        assert command[command.index("--entity") + 1] == "miller-ml-research"
+        assert command[command.index("--project") + 1] == "ValidateRhoLoss"
     assert not (runs["active"] / "SYNCED").exists()
     assert not (runs["failed"] / "SYNCED").exists()
     assert (runs["finished"] / "SYNCED").is_file()

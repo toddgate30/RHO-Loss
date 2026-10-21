@@ -41,7 +41,7 @@ def sync(root, subdirs=(), wandb="wandb"):
                 "--project",
                 "ValidateRhoLoss",
                 "--entity",
-                "ksmiller-byu-research",
+                "miller-ml-research",
                 *map(str, sorted(offline_dirs)),
             ]
             with subprocess.Popen(

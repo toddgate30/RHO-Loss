@@ -389,7 +389,7 @@ Keep it in the fork alongside the reproduction instructions.
 | Environment | Historical `my_environment.yaml`, rejected by the BYU solver | Conda-forge Python 3.9.6/pip 21.2.4 base plus frozen hash-checked research requirements and CUDA 11.1 wheels | Preserve research versions while removing obsolete mixed-channel build constraints | Base solves/installs; 29 checks and image transforms pass; P100 not tested |
 | Scheduling | Author-specific Slurm paths/partitions | BYU P100 regular jobs; 4 CPUs, 32G, one day; required site paths | Cluster adaptation | Mocked submission/dependencies checked; Slurm not contacted |
 | Data preparation | Loaders can download when data is absent | Login-node staging/integrity preflight before submission; compute verification only | Compute nodes are offline | Local corrupt-file/verification checks; real downloads not performed |
-| W&B | Online logger default | Offline `ksmiller-byu-research/ValidateRhoLoss` plus adapted daemon | Compute nodes are offline | Configuration and mocked syncing checked; no real sync |
+| W&B | Online logger default | Offline `miller-ml-research/ValidateRhoLoss` plus adapted daemon | Compute nodes are offline | Configuration and mocked syncing checked; no real sync |
 | Progress | No geodesic progress metric | Optional reuse of native predictions and pooled epoch fitting | Additional research diagnostic | State/forward/RNG invariance checked on synthetic native steps |
 | Seeds | Individual recipe overrides | Explicit paired 1–5 pipelines plus documented reference trial | Replication/variability study | Seed/artifact identity and dependencies checked |
 

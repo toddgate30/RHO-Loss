@@ -73,7 +73,7 @@ def test_six_pipelines_use_their_own_artifacts_and_dependencies(
         assert rho[0]["irr_dir"] == uniform[0]["irr_dir"] == irr[0]["run_dir"]
         assert rho[0]["irr_seed"] == irr[0]["irr_seed"]
         assert "logger.wandb.project=ValidateRhoLoss" in rho[0]["overrides"]
-        assert "logger.wandb.entity=ksmiller-byu-research" in rho[0]["overrides"]
+        assert "logger.wandb.entity=miller-ml-research" in rho[0]["overrides"]
     assert len(irr_dirs) == 6
     assert events[-1][0]["irr_seed"] == 1 and events[-1][0]["main_seed"] == 12
     output = capsys.readouterr()

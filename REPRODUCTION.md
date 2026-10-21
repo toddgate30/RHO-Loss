@@ -150,7 +150,7 @@ manual retries explicit; an already-started stage refuses silent reuse.
 
 ## W&B and login-node sync daemon
 
-All jobs log offline to **`ksmiller-byu-research/ValidateRhoLoss`**, using the
+All jobs log offline to **`miller-ml-research/ValidateRhoLoss`**, using the
 native Lightning logger. No compute-node internet access or W&B authentication
 is required. The remote project is populated when the offline files are synced;
 this implementation has not created/uploaded a project online.
@@ -168,6 +168,11 @@ python wandb-sync-daemon.py --root /YOUR/SHARED/OUTPUT_ROOT --interval 60
 ```
 
 Use the existing W&B login if available; never put keys in configs or Git.
+The destination entity is the `miller-ml-research` team from the group's existing
+project URL, rather than the `ksmiller-byu-research` organization. Pulling this
+correction and restarting the daemon also redirects existing offline runs to
+the team; no training rerun is needed. The daemon explicitly overrides the
+entity and project stored in those offline runs.
 This adapts the group's daemon: recursively discovers `wandb/offline-run-*`,
 syncs active runs, polls every 15 seconds by default, and skips finished runs
 with a `SYNCED` marker. `FINISHED` is written only after successful stage
